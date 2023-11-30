@@ -1,0 +1,66 @@
+Resources:
+  mySecurityGroupAro:
+      #Tipo del recurso a crear https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-securitygroup.html
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        #Id de la vpc donde estara nuestra instancia
+        #es posible extrar el id por referencia del nombre VpcId: !Ref myVPC
+        VpcId: vpc-04f99f85548c80aca
+        #Descripcion
+        GroupDescription: Security Group to server ARO
+        #Reglas, puertos y protocolos
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 22
+            ToPort: 22
+            CidrIp: 187.189.240.38/32
+          - IpProtocol: tcp
+            FromPort: 80
+            ToPort: 80  
+            CidrIp: 0.0.0.0/0
+          - IpProtocol: tcp
+            FromPort: 8080
+            ToPort: 8080
+            CidrIp: 0.0.0.0/0  
+        #Metadata en este caso contiene el nombre
+        Tags:
+          - Key: Name
+            Value: mySecurityGroupAro
+  aroServer:
+    #Tipo del recurso a crear https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-instance.html
+    Type: AWS::EC2::Instance
+    Properties: 
+      #Cada AMI tiene un ID especifico por la iso y region donde se encuentra al momento es la de ubuntu en el norte de virginia
+      ImageId: ami-0fc5d935ebf8bc3bc
+      #Nombre de la familia de la instancia que se aprovisionara
+      InstanceType: t2.micro
+      #La subnet se puede visualizar dentro de la VPC
+      SubnetId: subnet-0a40f2912565ae71a
+      #Es el id del security group
+      SecurityGroupIds: 
+        - !GetAtt mySecurityGroupAro.GroupId
+      UserData:
+        #Estos comandos se ejecutaran una vez creada la infraestructura
+        "Fn::Base64": !Sub |
+          #!/bin/bash
+          # setup Jenkins on EC2
+          #Java jvm installation
+          sudo apt-get update
+          sudo apt-get install openjdk-17-jre --assume-yes
+          sudo apt-get update
+          #Add repo to download jenkins packages from debian
+          sudo wget -O /usr/share/keyrings/jenkins-keyring.asc \
+          https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+          #Echo
+          echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+          https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+          /etc/apt/sources.list.d/jenkins.list > /dev/null
+          #Install packages from repository
+          sudo apt-get update
+          sudo apt-get install jenkins --assume-yes
+      #Configura la llave con la que podremos conectarnos por ssh en caso de ser necesario
+      KeyName: ssh_key
+      #Contiene metadatos en este caso es el nombre que se dara a la instancia
+      Tags:
+        - Key: Name
+          Value: aroServer
