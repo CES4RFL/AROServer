@@ -33,7 +33,7 @@ Resources:
       #Cada AMI tiene un ID especifico por la iso y region donde se encuentra al momento es la de ubuntu en el norte de virginia
       ImageId: ami-0fc5d935ebf8bc3bc
       #Nombre de la familia de la instancia que se aprovisionara
-      InstanceType: t2.micro
+      InstanceType: t3a.medium
       #La subnet se puede visualizar dentro de la VPC
       SubnetId: subnet-0a40f2912565ae71a
       #Es el id del security group

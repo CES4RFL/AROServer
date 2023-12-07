@@ -1,0 +1,103 @@
+#Referencia https://github.com/awslabs/aws-cloudformation-templates/blob/master/aws/services/ECS/FargateLaunchType/services/public-service.yml
+Resources:
+  devCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      CapacityProviders: 
+        - FARGATE
+      ClusterName: DevApp
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: task-app
+      Cpu: 512 
+      Memory: 1024
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ContainerDefinitions:
+        - Name: container-app
+          Cpu: 512
+          Memory: 1024
+          Image: 'public.ecr.aws/f0o1f7t2/appsnao:latest'
+          PortMappings:
+            - ContainerPort: 3000
+              Protocol: tcp
+              appProtocol: http
+
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn: Listener   
+    Properties:
+      ServiceName: task-service
+      Cluster: !Ref 'devCluster'
+      LaunchType: FARGATE
+      PlatformVersion: LATEST
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - sg-0ea2c3df890221783
+          Subnets:
+            - subnet-0a204a991be6c7a34 
+            - subnet-0b3da3643cd346a34 
+            - subnet-0a40f2912565ae71a 
+            - subnet-0082e24d747fc289d 
+            - subnet-0cfda2c9879f75f5b 
+            - subnet-01994fdd1c45e4f8f
+      TaskDefinition: !Ref 'TaskDefinition'
+      LoadBalancers:
+        - ContainerName: container-app
+          ContainerPort: 3000
+          TargetGroupArn: !Ref 'TargetGroup'
+
+  LoadBalancer:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Scheme: internet-facing
+      Subnets:
+        - subnet-0a204a991be6c7a34 
+        - subnet-0b3da3643cd346a34 
+        - subnet-0a40f2912565ae71a 
+        - subnet-0082e24d747fc289d 
+        - subnet-0cfda2c9879f75f5b 
+        - subnet-01994fdd1c45e4f8f
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 6
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      TargetType: ip
+      Name: task-service
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 2
+      VpcId: vpc-04f99f85548c80aca
+
+  # Create a rule on the load balancer for routing traffic to the target group
+  LoadBalancerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref 'TargetGroup'
+          Type: 'forward'
+      Conditions:
+        - Field: path-pattern
+          Values: ['*']
+      ListenerArn: !Ref Listener
+      Priority: 1 
+
+  Listener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: '80'
+      Protocol: HTTP
